@@ -171,7 +171,7 @@ def main():
 
                         nfl_url_data['gameid'] = gameid
                         nfl_url_data['url'] = "https://www.nfl.com/games/" + str(home.lower()) + "-at-" + str(
-                            away.lower()) + "-" + str(yr) + "-reg-" + str(week)
+                            away.lower()) + "-" + str(yr) + "-post-" + str(week)
                         nfl_url_data['home'] = home
                         nfl_url_data['away'] = away
                         nfl_url_data['year'] = yr
