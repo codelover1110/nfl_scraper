@@ -89,13 +89,13 @@ def main():
     home_city = None
 
     metadata = MetaData()
-    my_table = Table('game_data_url', metadata, autoload_with=engine)
+    my_table = Table('nfl_game_urls_updated', metadata, autoload_with=engine)
 
     with engine.connect() as conn:
         records = conn.execute(my_table.select()).fetchall()
         for record in records:
-            if record.url:
-                # url = 'https://www.nfl.com/games/chiefs-at-raiders-2022-reg-18?active-tab=watch'
+
+            if record.gameid:
                 url = record.url
                 try:
                     gs.navigate_to_url(url)
@@ -108,8 +108,9 @@ def main():
 
                     # First, we need to get all the data from all available quarters
                     gs.wait_for_element(By.XPATH, '//*[@id="all-drives-panel"]')
-                    quarter_elements = gs.select_element(By.XPATH, '//*[@id="all-drives-panel"]').find_elements(By.XPATH,
-                                                                                                                './*')
+                    quarter_elements = gs.select_element(By.XPATH, '//*[@id="all-drives-panel"]').find_elements(
+                        By.XPATH,
+                        './*')
 
                     cities = gs.select_element(By.XPATH, '//*[@class="css-1je2xdb"]').find_elements(By.XPATH, './*')
                     p = 0
@@ -231,7 +232,7 @@ def main():
 
                                 data = pd.json_normalize(timeline_data)
 
-                                table_name = 'game_solo_details'
+                                table_name = 'nfl_game_details_updated'
                                 data.to_sql(table_name, engine, if_exists='append', index=False)
 
                                 # game_data_detail.append(timeline_data)
@@ -239,6 +240,7 @@ def main():
                             i = i + 1
                 except:
                     pass
+
 
 def work():
     main()

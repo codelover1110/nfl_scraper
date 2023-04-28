@@ -16,7 +16,7 @@ import pytz
 
 from datetime import datetime
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, MetaData, Table
 import pandas as pd
 import psycopg2
 
@@ -84,15 +84,15 @@ def main():
     global game_data_detail
     game_data_detail = []
     gameid = 0
-    today = datetime.now()
-    year = today.year
-    print(year)
-    for yr in range(2017, year):
-        for week in range(1, 19):
-            url = 'https://www.nfl.com/scores/' + str(yr) + '/REG' + str(week)
-            print(url)
-            gs.navigate_to_url(url)
-            time.sleep(20)
+
+
+    metadata = MetaData()
+    my_table = Table('nfl_url_pre', metadata, autoload_with=engine)
+    with engine.connect() as conn:
+        records = conn.execute(my_table.select()).fetchall()
+        for record in records:
+            gs.navigate_to_url(record.url)
+            time.sleep(15)
             # close cookies
             try:
                 gs.select_element(By.XPATH, '//*[@id="onetrust-close-btn-container"]/button').click()
@@ -117,69 +117,37 @@ def main():
                         away = infos[1].text
 
                         nfl_url_data['gameid'] = gameid
-                        nfl_url_data['url'] = "https://www.nfl.com/games/" + str(home.lower()) + "-at-" + str(
-                            away.lower()) + "-" + str(yr) + "-reg-" + str(week)
+                        wn = str(record.week_name)
+                        if wn.startswith('Week'):
+                            nfl_url_data['url'] = "https://www.nfl.com/games/" + str(home.lower()) + "-at-" + str(
+                                away.lower()) + "-" + str(record.nfl_year) + "-reg-" + str(record.week_no)
+                        elif wn.startswith('Pro'):
+                            nfl_url_data['url'] = "https://www.nfl.com/games/" + str(home.lower()) + "-at-" + str(
+                                away.lower()) + "-" + str(record.nfl_year) + "-pro-" + str(record.week_no)
+                        elif wn.startswith('Preseason'):
+                            nfl_url_data['url'] = "https://www.nfl.com/games/" + str(home.lower()) + "-at-" + str(
+                                away.lower()) + "-" + str(record.nfl_year) + "-pre-" + str(record.week_no)
+                        elif wn.startswith('Hall'):
+                            nfl_url_data['url'] = "https://www.nfl.com/games/" + str(home.lower()) + "-at-" + str(
+                                away.lower()) + "-" + str(record.nfl_year) + "-pre-" + str(record.week_no)
+                        else:
+                            nfl_url_data['url'] = "https://www.nfl.com/games/" + str(home.lower()) + "-at-" + str(
+                                away.lower()) + "-" + str(record.nfl_year) + "-post-" + str(record.week_no)
                         nfl_url_data['home'] = home
                         nfl_url_data['away'] = away
-                        nfl_url_data['year'] = yr
-                        nfl_url_data['week'] = week
+                        nfl_url_data['yr'] = record.nfl_year
+                        nfl_url_data['week_no'] = record.week_no
+                        nfl_url_data['week_name'] = record.week_name
                         print(nfl_url_data)
-                        game_data_detail.append(nfl_url_data)
+                        #game_data_detail.append(nfl_url_data)
+
+                        data = pd.json_normalize(nfl_url_data)
+
+                        table_name = 'nfl_game_urls'
+                        data.to_sql(table_name, engine, if_exists='append', index=False)
             except:
                 pass
 
-    for yr in range(2017, year):
-        for week in range(1, 6):
-            url = 'https://www.nfl.com/scores/' + str(yr) + '/POST' + str(week)
-
-            if week == 1:
-                week = 18
-            elif week == 2:
-                week = 19
-            elif week == 3:
-                week = 20
-            elif week == 4:
-                week = 21
-            elif week == 5:
-                week = 22
-
-            print(url)
-            gs.navigate_to_url(url)
-            time.sleep(20)
-            # close cookies
-            try:
-                gs.select_element(By.XPATH, '//*[@id="onetrust-close-btn-container"]/button').click()
-            except:
-                pass
-
-            # First, we need to get all the data from all available quarters
-            gs.wait_for_element(By.XPATH, './/div[@class="css-37urdo"]')
-            match_elements = gs.select_element(By.XPATH, './/div[@class="css-37urdo"]').find_elements(By.XPATH,
-                                                                                                      './/div[@class="css-156uxf7"]')
-            try:
-                # iterate through quarters
-                for match in match_elements:
-                    nfl_url_data = {}
-                    soup = BeautifulSoup(match.get_attribute('innerHTML'), 'html.parser')
-                    infos = soup.find_all('div',
-                                          class_='css-text-1rynq56 r-color-1khnkhu r-fontFamily-1fdbu1n r-fontSize-ubezar')
-                    print("infos", infos)
-                    if infos:
-                        gameid = gameid + 1
-                        home = infos[0].text
-                        away = infos[1].text
-
-                        nfl_url_data['gameid'] = gameid
-                        nfl_url_data['url'] = "https://www.nfl.com/games/" + str(home.lower()) + "-at-" + str(
-                            away.lower()) + "-" + str(yr) + "-post-" + str(week)
-                        nfl_url_data['home'] = home
-                        nfl_url_data['away'] = away
-                        nfl_url_data['year'] = yr
-                        nfl_url_data['week'] = week
-                        print(nfl_url_data)
-                        game_data_detail.append(nfl_url_data)
-            except:
-                pass
 
 
 def work():
@@ -187,10 +155,10 @@ def work():
     now = datetime.now()
     formatted_date = now.strftime("%Y-%m-%d-%H-%M-%S")
 
-    data = pd.json_normalize(game_data_detail)
-
-    table_name = 'game_data_url'
-    data.to_sql(table_name, engine, if_exists='replace', index=False)
+    # data = pd.json_normalize(game_data_detail)
+    #
+    # table_name = 'nfl_url_details'
+    # data.to_sql(table_name, engine, if_exists='replace', index=False)
 
 
 if __name__ == '__main__':
